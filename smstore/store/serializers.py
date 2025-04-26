@@ -1,9 +1,7 @@
 # api/serializers.py
-from rest_framework import serializers
+from rest_framework import serializers # type: ignore
 from django.db import transaction
 from django.contrib.auth.models import User
-
-
 from .models import Store, Product, Order, OrderItem, ShoppingCart, CartItem
 
 

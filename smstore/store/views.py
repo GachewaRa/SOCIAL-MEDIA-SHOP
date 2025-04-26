@@ -3,8 +3,10 @@ from rest_framework import viewsets, generics, status, permissions # type: ignor
 from rest_framework.decorators import action # type: ignore
 from rest_framework.response import Response # type: ignore
 from django.shortcuts import get_object_or_404
-
-from .models import Store, Product, Order, OrderItem, ShoppingCart, CartItem
+from .order import Order
+from .product import Product
+from .shoppingcart import CartItem, ShoppingCart
+from .storemodel import Store
 from .serializers import (
     StoreSerializer, ProductSerializer, OrderSerializer, OrderUpdateSerializer,
     ShoppingCartSerializer, CartItemSerializer, CartItemCreateSerializer,

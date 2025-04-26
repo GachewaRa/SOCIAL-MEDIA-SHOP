@@ -3,8 +3,8 @@ from .order import Order
 from .orderitem import OrderItem
 from .shoppingcart import CartItem, ShoppingCart
 from .storemodel import Store
-
 from .product import Product
+from django import forms
 
 
 class ProductInline(admin.TabularInline):
@@ -37,9 +37,31 @@ class CartItemInline(admin.TabularInline):
         return obj.subtotal
 
 
+class StoreAdminForm(forms.ModelForm):
+    total_orders_count = forms.IntegerField(disabled=True, required=False, 
+                                           label="Total Orders")
+    pending_orders_count = forms.IntegerField(disabled=True, required=False,
+                                             label="Pending Orders")
+    total_revenue_amount = forms.DecimalField(disabled=True, required=False,
+                                             label="Total Revenue")
+    
+    class Meta:
+        model = Store
+        fields = '__all__'  # Include all fields from the model
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Populate the calculated fields if we have an instance
+        if self.instance and self.instance.pk:
+            self.initial['total_orders_count'] = self.instance.total_orders()
+            self.initial['pending_orders_count'] = self.instance.pending_orders()
+            self.initial['total_revenue_amount'] = self.instance.total_revenue()
+
+
 @admin.register(Store)
 class StoreAdmin(admin.ModelAdmin):
-    list_display = ('name', 'owner', 'email', 'phone', 'total_orders', 'pending_orders', 'total_revenue')
+    form = StoreAdminForm
+    list_display = ('name', 'owner', 'email', 'phone', 'display_total_orders', 'display_pending_orders', 'display_total_revenue')
     search_fields = ('name', 'owner__username', 'email')
     list_filter = ('created_at',)
     inlines = [ProductInline]
@@ -50,6 +72,18 @@ class StoreAdmin(admin.ModelAdmin):
         if not request.user.is_superuser:
             qs = qs.filter(owner=request.user)
         return qs
+    
+    def display_total_orders(self, obj):
+        return obj.total_orders()
+    display_total_orders.short_description = 'Total Orders'
+    
+    def display_pending_orders(self, obj):
+        return obj.pending_orders()
+    display_pending_orders.short_description = 'Pending Orders'
+    
+    def display_total_revenue(self, obj):
+        return obj.total_revenue()
+    display_total_revenue.short_description = 'Total Revenue'
 
 
 @admin.register(Product)
@@ -96,25 +130,24 @@ class OrderAdmin(admin.ModelAdmin):
         }),
     )
     
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        # If not superuser, only show orders from stores owned by the current user
-        if not request.user.is_superuser:
-            qs = qs.filter(store__owner=request.user)
-        return qs
-    
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        # Limit store choices to stores owned by the current user
-        if db_field.name == "store" and not request.user.is_superuser:
-            kwargs["queryset"] = Store.objects.filter(owner=request.user)
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+    def get_readonly_fields(self, request, obj=None):
+        # For new orders, only make certain fields readonly
+        if obj is None:  # This is a new order being created
+            return ('order_code', 'placed_at', 'fulfilled_at')
+        # For existing orders, make more fields readonly
+        return ('order_code', 'placed_at', 'fulfilled_at')
     
     def save_model(self, request, obj, form, change):
-        # Handle fulfillment logic when status changes to 'fulfilled'
-        if 'status' in form.changed_data and obj.status == 'fulfilled':
-            obj.mark_fulfilled(obj.final_total_amount)
-        else:
+        # If this is a new order (not a change to existing)
+        if not change:
+            # Let the save method generate the order code
             super().save_model(request, obj, form, change)
+        else:
+            # If status is changing to fulfilled
+            if 'status' in form.changed_data and obj.status == 'fulfilled':
+                obj.mark_fulfilled(obj.final_total_amount)
+            else:
+                super().save_model(request, obj, form, change)
 
 
 @admin.register(OrderItem)
