@@ -1,7 +1,7 @@
 # api/views.py
-from rest_framework import viewsets, generics, status, permissions # type: ignore
-from rest_framework.decorators import action # type: ignore
-from rest_framework.response import Response # type: ignore
+from rest_framework import viewsets, generics, status, permissions
+from rest_framework.decorators import action
+from rest_framework.response import Response 
 from django.shortcuts import get_object_or_404
 from .order import Order
 from .product import Product
@@ -30,16 +30,45 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
             return obj.store.owner == request.user
         return False
 
+class IsAuthenticatedForWriteOrReadOnly(permissions.BasePermission):
+    """
+    Allow read access to anyone, but require authentication for write operations.
+    """
+    def has_permission(self, request, view):
+        # Read permissions are allowed to anyone
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        # Write permissions require authentication
+        return bool(request.user and request.user.is_authenticated)
+    
+
 
 class StoreViewSet(viewsets.ModelViewSet):
     serializer_class = StoreSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
+    permission_classes = [IsAuthenticatedForWriteOrReadOnly, IsOwnerOrReadOnly]
     
     def get_queryset(self):
-        user = self.request.user
-        if user.is_superuser:
+        # For list view and anonymous users, return all stores
+        if not self.request.user.is_authenticated:
             return Store.objects.all()
-        return Store.objects.filter(owner=user)
+        
+        # For authenticated users
+        if self.request.user.is_superuser:
+            return Store.objects.all()
+        return Store.objects.filter(owner=self.request.user)
+    
+    def get_object(self):
+        # For detail views, use the standard method which will apply object-level permissions
+        # after retrieving the object
+        if self.action in ['retrieve', 'products', 'orders']:
+            # For retrieve actions, get from the entire queryset
+            queryset = Store.objects.all()
+            # Look up by primary key provided in URL
+            obj = get_object_or_404(queryset, pk=self.kwargs['pk'])
+            # Check object-level permissions
+            self.check_object_permissions(self.request, obj)
+            return obj
+        return super().get_object()
     
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -50,7 +79,7 @@ class StoreViewSet(viewsets.ModelViewSet):
         products = Product.objects.filter(store=store)
         serializer = ProductSerializer(products, many=True)
         return Response(serializer.data)
-    
+
     @action(detail=True, methods=['get'])
     def orders(self, request, pk=None):
         store = self.get_object()
@@ -61,7 +90,8 @@ class StoreViewSet(viewsets.ModelViewSet):
 
 class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
+    # permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
+    permission_classes = [IsOwnerOrReadOnly]
     
     def get_queryset(self):
         user = self.request.user

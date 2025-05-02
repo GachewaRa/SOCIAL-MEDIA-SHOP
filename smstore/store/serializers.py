@@ -1,8 +1,13 @@
-# api/serializers.py
-from rest_framework import serializers # type: ignore
+from rest_framework import serializers
 from django.db import transaction
 from django.contrib.auth.models import User
-from .models import Store, Product, Order, OrderItem, ShoppingCart, CartItem
+
+from .order import Order
+from .orderitem import OrderItem
+from .product import Product
+from .shoppingcart import CartItem, ShoppingCart
+from .storemodel import Store
+
 
 
 class UserSerializer(serializers.ModelSerializer):
