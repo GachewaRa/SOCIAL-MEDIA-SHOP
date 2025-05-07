@@ -5,7 +5,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     StoreViewSet, ProductViewSet, OrderViewSet, StoreProductsPublicView,
     CartView, AddToCartView, UpdateCartItemView, RemoveFromCartView,
-    CheckoutView, TrackOrderView
+    CheckoutView, TrackOrderView, get_csrf_token
 )
 
 router = DefaultRouter()
@@ -30,4 +30,6 @@ urlpatterns = [
     
     # Order tracking
     path('track-order/', TrackOrderView.as_view(), name='track-order'),
+
+    path('csrf/', get_csrf_token, name='get_csrf_token'),
 ]

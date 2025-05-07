@@ -1,6 +1,5 @@
-# api/views.py
 from rest_framework import viewsets, generics, status, permissions
-from rest_framework.decorators import action
+from rest_framework.decorators import action 
 from rest_framework.response import Response 
 from django.shortcuts import get_object_or_404
 from .order import Order
@@ -13,6 +12,36 @@ from .serializers import (
     CartItemUpdateSerializer, CheckoutSerializer, OrderTrackingSerializer
 )
 
+# from rest_framework.authentication import SessionAuthentication
+
+# class CsrfExemptSessionAuthentication(SessionAuthentication):
+#     def enforce_csrf(self, request):
+#         return
+
+# In your views.py
+from django.http import HttpResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.middleware.csrf import get_token
+
+from django.http import JsonResponse
+
+# @ensure_csrf_cookie
+# def get_csrf_token(request):
+#     response = HttpResponse()
+#     response["X-CSRF-Set"] = "Attempted"  # Debug header
+#     return response
+
+@ensure_csrf_cookie
+def get_csrf_token(request):
+    """
+    Returns the CSRF token both as a cookie and in the response body.
+    This helps with cross-origin scenarios where cookies might be blocked.
+    """
+    token = get_token(request)
+    return JsonResponse({
+        'csrf_token': token,
+        'status': 'success'
+    })
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
     """
@@ -90,10 +119,13 @@ class StoreViewSet(viewsets.ModelViewSet):
 
 class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
-    # permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
-    permission_classes = [IsOwnerOrReadOnly]
+    permission_classes = [IsAuthenticatedForWriteOrReadOnly, IsOwnerOrReadOnly]
     
     def get_queryset(self):
+
+        if not self.request.user.is_authenticated:
+            return Product.objects.all()
+         
         user = self.request.user
         if user.is_superuser:
             return Product.objects.all()
@@ -123,7 +155,6 @@ class OrderViewSet(viewsets.ModelViewSet):
         if user.is_superuser:
             return Order.objects.all()
         return Order.objects.filter(store__owner=user)
-
 
 class CartView(generics.RetrieveAPIView):
     """View for managing shopping cart"""
@@ -183,6 +214,7 @@ class UpdateCartItemView(generics.UpdateAPIView):
     """Update quantity of an item in the cart"""
     serializer_class = CartItemUpdateSerializer
     permission_classes = [permissions.AllowAny]
+    # authentication_classes = (CsrfExemptSessionAuthentication,)
     
     def get_object(self):
         cart_item_id = self.kwargs.get('item_id')
