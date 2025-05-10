@@ -265,32 +265,60 @@ class CheckoutView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
     
     def create(self, request, *args, **kwargs):
+        # Debug info
         session_key = request.session.session_key
+        store_id = kwargs.get('store_id')
+        
         if not session_key:
+            request.session.create()  # Force session creation if missing
+            session_key = request.session.session_key
             return Response(
-                {"error": "No active shopping cart found"}, 
+                {"error": "No session found - new session created, please try again"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        store_id = kwargs.get('store_id')
+            
         store = get_object_or_404(Store, pk=store_id)
         
+        # More detailed error for troubleshooting
         try:
             cart = ShoppingCart.objects.get(session_key=session_key, store=store)
         except ShoppingCart.DoesNotExist:
-            return Response(
-                {"error": "No active shopping cart found"}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+            # Check if any cart exists for this session
+            any_cart = ShoppingCart.objects.filter(session_key=session_key).first()
+            
+            # Debug response with more info
+            debug_info = {
+                "error": "No active shopping cart found",
+                "debug": {
+                    "session_key": session_key,
+                    "session_exists": session_key is not None,
+                    "store_id": store_id,
+                    "has_other_cart": any_cart is not None,
+                    "other_cart_store": any_cart.store.id if any_cart else None
+                }
+            }
+            return Response(debug_info, status=status.HTTP_400_BAD_REQUEST)
+            
         if not cart.cartitem_set.exists():
             return Response(
-                {"error": "Your cart is empty"}, 
+                {"error": "Your cart is empty"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+            
+        # Validate request data
         serializer = self.get_serializer(data=request.data, context={'cart': cart})
-        serializer.is_valid(raise_exception=True)
+        
+        if not serializer.is_valid():
+            # Return detailed validation errors
+            return Response(
+                {
+                    "error": "Invalid order data",
+                    "details": serializer.errors,
+                    "received_data": request.data
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
         order = serializer.save()
         
         # Return the created order
@@ -304,11 +332,12 @@ class TrackOrderView(generics.GenericAPIView):
     permission_classes = [permissions.AllowAny]
     
     def post(self, request, *args, **kwargs):
+        # print("Request Data:", request.data)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         order = serializer.validated_data['order_code']
         order_serializer = OrderSerializer(order)
-        
+        # print("SERIALIZED Data:", order_serializer.data)
         return Response(order_serializer.data)
 

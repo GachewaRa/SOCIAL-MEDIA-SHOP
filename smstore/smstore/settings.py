@@ -184,3 +184,5 @@ SESSION_COOKIE_SECURE = True
 if DEBUG:
     CSRF_COOKIE_SECURE = False
     SESSION_COOKIE_SECURE = False
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
