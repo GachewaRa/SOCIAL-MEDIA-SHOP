@@ -143,7 +143,7 @@ class StoreProductsPublicView(generics.ListAPIView):
 
 
 class OrderViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
+    permission_classes = [IsOwnerOrReadOnly]
     
     def get_serializer_class(self):
         if self.action in ['update', 'partial_update']:
@@ -205,8 +205,8 @@ class AddToCartView(generics.CreateAPIView):
         
         cart.add_item(product, quantity)
         
-        # Return the updated cart
-        cart_serializer = ShoppingCartSerializer(cart)
+        # Return the updated cart with request context
+        cart_serializer = ShoppingCartSerializer(cart, context={'request': request})
         return Response(cart_serializer.data, status=status.HTTP_201_CREATED)
 
 
@@ -214,7 +214,6 @@ class UpdateCartItemView(generics.UpdateAPIView):
     """Update quantity of an item in the cart"""
     serializer_class = CartItemUpdateSerializer
     permission_classes = [permissions.AllowAny]
-    # authentication_classes = (CsrfExemptSessionAuthentication,)
     
     def get_object(self):
         cart_item_id = self.kwargs.get('item_id')
@@ -235,8 +234,8 @@ class UpdateCartItemView(generics.UpdateAPIView):
         cart_item.quantity = quantity
         cart_item.save()
         
-        # Return the updated cart
-        cart_serializer = ShoppingCartSerializer(cart_item.cart)
+        # Return the updated cart with request context
+        cart_serializer = ShoppingCartSerializer(cart_item.cart, context={'request': request})
         return Response(cart_serializer.data)
 
 
@@ -254,8 +253,8 @@ class RemoveFromCartView(generics.DestroyAPIView):
         cart = cart_item.cart
         cart_item.delete()
         
-        # Return the updated cart
-        cart_serializer = ShoppingCartSerializer(cart)
+        # Return the updated cart with request context
+        cart_serializer = ShoppingCartSerializer(cart, context={'request': request})
         return Response(cart_serializer.data)
 
 

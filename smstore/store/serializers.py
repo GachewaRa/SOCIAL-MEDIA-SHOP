@@ -129,12 +129,19 @@ class OrderUpdateSerializer(serializers.ModelSerializer):
 class CartItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
     product_price = serializers.ReadOnlyField(source='product.price')
+    product_image = serializers.SerializerMethodField()  # Add this line
     subtotal = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     
     class Meta:
         model = CartItem
-        fields = ['id', 'product', 'product_name', 'product_price', 'quantity', 'price', 'subtotal']
+        fields = ['id', 'product', 'product_name', 'product_price', 'product_image', 'quantity', 'price', 'subtotal']
         read_only_fields = ['id', 'price', 'subtotal']
+    
+    def get_product_image(self, obj):
+        """Method to get the product image URL"""
+        if obj.product.image:
+            return self.context['request'].build_absolute_uri(obj.product.image.url)
+        return None
     
     def to_representation(self, instance):
         representation = super().to_representation(instance)
