@@ -17,18 +17,44 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
+# class StoreSerializer(serializers.ModelSerializer):
+#     owner = UserSerializer(read_only=True)
+#     total_revenue = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+#     total_orders = serializers.IntegerField(read_only=True)
+#     pending_orders = serializers.IntegerField(read_only=True)
+    
+#     class Meta:
+#         model = Store
+#         fields = ['id', 'name', 'owner', 'description', 'logo', 'email', 'phone', 
+#                   'created_at', 'updated_at', 'total_revenue', 'total_orders', 'pending_orders']
+#         read_only_fields = ['id', 'owner', 'created_at', 'updated_at']
+    
+#     def to_representation(self, instance):
+#         representation = super().to_representation(instance)
+#         representation['total_revenue'] = instance.total_revenue()
+#         representation['total_orders'] = instance.total_orders()
+#         representation['pending_orders'] = instance.pending_orders()
+#         return representation
+
 class StoreSerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
     total_revenue = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     total_orders = serializers.IntegerField(read_only=True)
     pending_orders = serializers.IntegerField(read_only=True)
-    
+    logo = serializers.SerializerMethodField()  # Add this line
+
     class Meta:
         model = Store
         fields = ['id', 'name', 'owner', 'description', 'logo', 'email', 'phone', 
-                  'created_at', 'updated_at', 'total_revenue', 'total_orders', 'pending_orders']
+                 'created_at', 'updated_at', 'total_revenue', 'total_orders', 'pending_orders']
         read_only_fields = ['id', 'owner', 'created_at', 'updated_at']
-    
+
+    def get_logo(self, obj):
+        """Returns the full Cloudinary URL for the logo."""
+        if obj.logo:
+            return f"https://res.cloudinary.com/dyr0ityfq/{obj.logo}"
+        return None
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['total_revenue'] = instance.total_revenue()
@@ -37,15 +63,39 @@ class StoreSerializer(serializers.ModelSerializer):
         return representation
 
 
+# class ProductSerializer(serializers.ModelSerializer):
+#     store = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all())
+    
+#     class Meta:
+#         model = Product
+#         fields = ['id', 'store', 'name', 'description', 'price', 'image', 
+#                   'inventory', 'units_sold', 'total_revenue', 'created_at', 'updated_at']
+#         read_only_fields = ['id', 'units_sold', 'total_revenue', 'created_at', 'updated_at']
+    
+#     def validate_store(self, value):
+#         # Ensure users can only create products for their own stores
+#         request = self.context.get('request')
+#         if request and request.user.is_authenticated:
+#             if not request.user.is_superuser and value.owner != request.user:
+#                 raise serializers.ValidationError("You can only create products for your own stores.")
+#         return value
+
 class ProductSerializer(serializers.ModelSerializer):
     store = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all())
-    
+    image = serializers.SerializerMethodField()  # Add this line
+
     class Meta:
         model = Product
         fields = ['id', 'store', 'name', 'description', 'price', 'image', 
-                  'inventory', 'units_sold', 'total_revenue', 'created_at', 'updated_at']
+                 'inventory', 'units_sold', 'total_revenue', 'created_at', 'updated_at']
         read_only_fields = ['id', 'units_sold', 'total_revenue', 'created_at', 'updated_at']
-    
+
+    def get_image(self, obj):
+        """Returns the full Cloudinary URL for the product image."""
+        if obj.image:
+            return f"https://res.cloudinary.com/dyr0ityfq/{obj.image}"
+        return None
+
     def validate_store(self, value):
         # Ensure users can only create products for their own stores
         request = self.context.get('request')
@@ -53,7 +103,6 @@ class ProductSerializer(serializers.ModelSerializer):
             if not request.user.is_superuser and value.owner != request.user:
                 raise serializers.ValidationError("You can only create products for your own stores.")
         return value
-
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
@@ -126,10 +175,32 @@ class OrderUpdateSerializer(serializers.ModelSerializer):
         return instance
 
 
+# class CartItemSerializer(serializers.ModelSerializer):
+#     product_name = serializers.ReadOnlyField(source='product.name')
+#     product_price = serializers.ReadOnlyField(source='product.price')
+#     product_image = serializers.SerializerMethodField() 
+#     subtotal = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    
+#     class Meta:
+#         model = CartItem
+#         fields = ['id', 'product', 'product_name', 'product_price', 'product_image', 'quantity', 'price', 'subtotal']
+#         read_only_fields = ['id', 'price', 'subtotal']
+    
+#     def get_product_image(self, obj):
+#         """Method to get the product image URL"""
+#         if obj.product.image:
+#             return self.context['request'].build_absolute_uri(obj.product.image.url)
+#         return None
+    
+#     def to_representation(self, instance):
+#         representation = super().to_representation(instance)
+#         representation['subtotal'] = instance.subtotal
+#         return representation
+
 class CartItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
     product_price = serializers.ReadOnlyField(source='product.price')
-    product_image = serializers.SerializerMethodField()  # Add this line
+    product_image = serializers.SerializerMethodField() 
     subtotal = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     
     class Meta:
@@ -138,9 +209,9 @@ class CartItemSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'price', 'subtotal']
     
     def get_product_image(self, obj):
-        """Method to get the product image URL"""
+        """Returns the full Cloudinary URL for the product image."""
         if obj.product.image:
-            return self.context['request'].build_absolute_uri(obj.product.image.url)
+            return f"https://res.cloudinary.com/dyr0ityfq/{obj.product.image}"
         return None
     
     def to_representation(self, instance):
