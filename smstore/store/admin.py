@@ -1,3 +1,4 @@
+from datetime import timezone
 from django.contrib import admin
 from .order import Order
 from .orderitem import OrderItem
@@ -107,14 +108,57 @@ class ProductAdmin(admin.ModelAdmin):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
+# @admin.register(Order)
+# class OrderAdmin(admin.ModelAdmin):
+#     list_display = ('order_code', 'store', 'customer_name', 'status', 'total_amount', 
+#                     'final_total_amount', 'placed_at', 'fulfilled_at')
+#     list_filter = ('store', 'status', 'placed_at', 'fulfilled_at')
+#     search_fields = ('order_code', 'customer_name', 'customer_phone')
+#     readonly_fields = ('order_code', 'placed_at', 'fulfilled_at')
+#     inlines = [OrderItemInline]
+#     fieldsets = (
+#         ('Order Information', {
+#             'fields': ('store', 'order_code', 'status', 'notes')
+#         }),
+#         ('Customer Information', {
+#             'fields': ('customer_name', 'customer_phone', 'delivery_location')
+#         }),
+#         ('Financial Details', {
+#             'fields': ('total_amount', 'final_total_amount')
+#         }),
+#         ('Timestamps', {
+#             'fields': ('placed_at', 'fulfilled_at')
+#         }),
+#     )
+    
+#     def get_readonly_fields(self, request, obj=None):
+#         # For new orders, only make certain fields readonly
+#         if obj is None:  # This is a new order being created
+#             return ('order_code', 'placed_at', 'fulfilled_at')
+#         # For existing orders, make more fields readonly
+#         return ('order_code', 'placed_at', 'fulfilled_at')
+    
+#     def save_model(self, request, obj, form, change):
+#         # If this is a new order (not a change to existing)
+#         if not change:
+#             # Let the save method generate the order code
+#             super().save_model(request, obj, form, change)
+#         else:
+#             # If status is changing to fulfilled
+#             if 'status' in form.changed_data and obj.status == 'fulfilled':
+#                 obj.mark_fulfilled(obj.final_total_amount)
+#             else:
+#                 super().save_model(request, obj, form, change)
+
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = ('order_code', 'store', 'customer_name', 'status', 'total_amount', 
-                    'final_total_amount', 'placed_at', 'fulfilled_at')
+                   'final_total_amount', 'placed_at', 'fulfilled_at')
     list_filter = ('store', 'status', 'placed_at', 'fulfilled_at')
     search_fields = ('order_code', 'customer_name', 'customer_phone')
-    readonly_fields = ('order_code', 'placed_at', 'fulfilled_at')
+    readonly_fields = ('order_code', 'placed_at', 'fulfilled_at', 'total_amount')  # Added total_amount as readonly
     inlines = [OrderItemInline]
+    
     fieldsets = (
         ('Order Information', {
             'fields': ('store', 'order_code', 'status', 'notes')
@@ -126,28 +170,31 @@ class OrderAdmin(admin.ModelAdmin):
             'fields': ('total_amount', 'final_total_amount')
         }),
         ('Timestamps', {
-            'fields': ('placed_at', 'fulfilled_at')
+            'fields': ('placed_at', 'fulfilled_at'),
+            'classes': ('collapse',)  # Optional: makes this section collapsible
         }),
     )
-    
+
     def get_readonly_fields(self, request, obj=None):
-        # For new orders, only make certain fields readonly
-        if obj is None:  # This is a new order being created
-            return ('order_code', 'placed_at', 'fulfilled_at')
-        # For existing orders, make more fields readonly
-        return ('order_code', 'placed_at', 'fulfilled_at')
-    
+        """Dynamic readonly fields"""
+        readonly_fields = super().get_readonly_fields(request, obj)
+        if obj:  # Existing order
+            return readonly_fields + ('store', 'customer_name', 'customer_phone', 'delivery_location')
+        return readonly_fields
+
     def save_model(self, request, obj, form, change):
-        # If this is a new order (not a change to existing)
-        if not change:
-            # Let the save method generate the order code
+        """Simplified save logic"""
+        try:
+            if change and 'status' in form.changed_data and obj.status == 'fulfilled':
+                if hasattr(obj, 'mark_fulfilled'):
+                    obj.mark_fulfilled(obj.final_total_amount)
+                else:
+                    obj.fulfilled_at = timezone.now()
             super().save_model(request, obj, form, change)
-        else:
-            # If status is changing to fulfilled
-            if 'status' in form.changed_data and obj.status == 'fulfilled':
-                obj.mark_fulfilled(obj.final_total_amount)
-            else:
-                super().save_model(request, obj, form, change)
+        except Exception as e:
+            from django.contrib import messages
+            messages.error(request, f"Error saving order: {str(e)}")
+            raise
 
 
 @admin.register(OrderItem)
