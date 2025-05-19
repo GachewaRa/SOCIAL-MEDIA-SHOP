@@ -1,13 +1,14 @@
 from django.db import models
 from django.contrib.auth.models import User
-
+from cloudinary.models import CloudinaryField
 
 class Store(models.Model):
     """Model representing a store in the multi-tenant system"""
     name = models.CharField(max_length=100)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     description = models.TextField(blank=True)
-    logo = models.ImageField(upload_to='store_logos/', blank=True, null=True)
+    # logo = models.ImageField(upload_to='store_logos/', blank=True, null=True)
+    logo = CloudinaryField('image', blank=True, null=True)
     email = models.EmailField()
     phone = models.CharField(max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)

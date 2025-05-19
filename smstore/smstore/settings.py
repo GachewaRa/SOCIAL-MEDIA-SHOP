@@ -11,8 +11,12 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-from dotenv import load_dotenv # type: ignore
+from dotenv import load_dotenv
 import os
+
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 load_dotenv()
 
@@ -28,9 +32,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
+    "smstore.onrender.com",
+    "localhost",
     "127.0.0.1"
 ]
 
@@ -48,6 +54,8 @@ INSTALLED_APPS = [
     'django_extensions',
     'corsheaders',
     'store',
+    'cloudinary',
+    'cloudinary_storage',
 ]
 
 MIDDLEWARE = [
@@ -128,6 +136,8 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -157,6 +167,7 @@ CORS_ALLOWED_HEADERS = [
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://imanifine.vercel.app",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
@@ -165,6 +176,7 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    "https://imanifine.vercel.app",
 ]
 
 REST_FRAMEWORK = {
@@ -186,3 +198,21 @@ if DEBUG:
     SESSION_COOKIE_SECURE = False
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+
+# Optional: Define MEDIA_URL if you want
+MEDIA_URL = f"https://res.cloudinary.com/dyr0ityfq/"
+
+
+CLOUDINARY_STORAGE = {
+    "CLOUD_NAME": os.getenv('CLOUD_NAME'),
+    "API_KEY": os.getenv('CLOUDINARY_API_KEY'),
+    "API_SECRET": os.getenv('CLOUDINARY_API_SECRET'),
+}
+
+cloudinary.config( 
+  cloud_name = os.getenv("CLOUD_NAME"),  
+  api_key = os.getenv("CLOUDINARY_API_KEY"),  
+  api_secret = os.getenv("CLOUDINARY_API_SECRET")  
+)
