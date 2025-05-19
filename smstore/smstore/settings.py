@@ -216,3 +216,6 @@ cloudinary.config(
   api_key = os.getenv("CLOUDINARY_API_KEY"),  
   api_secret = os.getenv("CLOUDINARY_API_SECRET")  
 )
+
+# Required for Django admin static files
+WHITENOISE_USE_FINDERS = True
